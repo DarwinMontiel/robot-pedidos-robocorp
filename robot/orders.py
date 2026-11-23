@@ -15,6 +15,11 @@ from pathlib import Path
 CATALOG: frozenset[str] = frozenset(str(n) for n in range(1, 7))
 
 
+def _is_number(value: str) -> bool:
+    """Solo dígitos ASCII: ``str.isdigit`` acepta «²» o «①», que ``int()`` no convierte."""
+    return value.isascii() and value.isdigit()
+
+
 class InvalidOrderError(ValueError):
     """Fila del CSV que no se puede procesar (error de negocio: no se reintenta)."""
 
@@ -37,7 +42,7 @@ class Order:
     @classmethod
     def from_row(cls, row: Mapping[str, str | None]) -> Order:
         raw_number = _field(row, "Order number")
-        if not raw_number.isdigit() or int(raw_number) < 1:
+        if not _is_number(raw_number) or int(raw_number) < 1:
             raise InvalidOrderError("número de pedido no numérico")
         order = cls(
             number=int(raw_number),
@@ -54,7 +59,7 @@ class Order:
             raise InvalidOrderError(f"pedido {self.number}: cabeza fuera de catálogo (1 a 6)")
         if self.body not in CATALOG:
             raise InvalidOrderError(f"pedido {self.number}: cuerpo fuera de catálogo (1 a 6)")
-        if not self.legs.isdigit():
+        if not _is_number(self.legs):
             raise InvalidOrderError(f"pedido {self.number}: número de piernas inválido")
         if not self.address:
             raise InvalidOrderError(f"pedido {self.number}: dirección vacía")
@@ -77,18 +82,30 @@ class Batch:
 
 
 def parse_orders(rows: Iterable[Mapping[str, str | None]]) -> Batch:
-    """Valida fila por fila: una fila mala se aparta y las demás siguen."""
+    """Valida fila por fila: una fila mala se aparta y las demás siguen.
+
+    Un número de pedido repetido también se aparta: el recibo, la evidencia y el reporte se
+    identifican por ese número, y la segunda fila sobrescribiría a la primera.
+    """
     batch = Batch()
+    seen: set[int] = set()
     for line, row in enumerate(rows, start=2):
         try:
-            batch.orders.append(Order.from_row(row))
+            order = Order.from_row(row)
+            if order.number in seen:
+                raise InvalidOrderError(f"pedido {order.number}: número repetido en el lote")
         except InvalidOrderError as error:
             batch.rejected.append(RejectedRow(line=line, reason=str(error)))
+            continue
+        seen.add(order.number)
+        batch.orders.append(order)
     return batch
 
 
 def read_orders(path: Path) -> Batch:
-    with path.open(newline="", encoding="utf-8") as handle:
+    # utf-8-sig: un CSV guardado desde Excel trae BOM y, sin quitarlo, la primera columna se
+    # leería como «BOM + Order number» y todas las filas quedarían apartadas.
+    with path.open(newline="", encoding="utf-8-sig") as handle:
         return parse_orders(csv.DictReader(handle))
 
 

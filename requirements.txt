@@ -1,4 +1,6 @@
-# Para ejecutar fuera de RCC (pip). Versiones alineadas con conda.yaml.
+# Para ejecutar fuera de RCC (pip) con Python 3.12, como conda.yaml: en Windows con Python 3.13
+# no resuelve (rpaframework 31 fija pywin32<307, que no tiene ruedas para 3.13).
+# Versiones alineadas con conda.yaml.
 robocorp==3.0.0
 robocorp-browser==2.3.5
 rpaframework==31.0.0

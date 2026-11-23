@@ -25,7 +25,7 @@ Industries* (un sitio de práctica de Robocorp) rechaza al azar algunos envíos,
 cuando una fila viene incompleta. Un humano lo resolvería con paciencia y una hoja de cálculo
 aparte; este robot hace lo mismo, pero con reglas explícitas:
 
-- **Error de sistema** (el servidor rechaza el envío, una espera vence): se reintenta hasta 5
+- **Error de sistema** (el servidor rechaza el envío, una espera vence): se intenta hasta 5
   veces; si no se logra, se guarda una captura como evidencia y **el lote sigue**.
 - **Error de negocio** (una fila con columnas faltantes o un valor fuera de catálogo): no se
   reintenta, porque repetir no lo arregla. Se aparta con su número de línea y el motivo, sin

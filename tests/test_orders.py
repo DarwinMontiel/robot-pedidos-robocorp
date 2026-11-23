@@ -30,6 +30,11 @@ def test_reads_the_daily_csv_into_validated_orders() -> None:
         ({"Order number": "1", "Head": "1", "Body": "1", "Legs": "2", "Address": " "}, "dirección"),
         ({"Order number": "1", "Head": "1"}, "falta la columna «Body»"),
         (
+            {"Order number": "²", "Head": "1", "Body": "1", "Legs": "1", "Address": "A"},
+            "número de pedido no numérico",
+        ),
+        ({"Order number": "1", "Head": "1", "Body": "1", "Legs": "³", "Address": "A"}, "piernas"),
+        (
             {"Order number": "1", "Head": "1", "Body": "1", "Legs": "2", "Address": None},
             "falta la columna «Address»",
         ),
@@ -51,6 +56,27 @@ def test_an_invalid_row_does_not_abort_the_batch() -> None:
         RejectedRow(line=5, reason="número de pedido no numérico"),
         RejectedRow(line=6, reason="falta la columna «Legs»"),
     ]
+
+
+def test_a_repeated_order_number_is_set_aside() -> None:
+    row = {"Order number": "4", "Head": "1", "Body": "1", "Legs": "2", "Address": "A"}
+
+    batch = parse_orders([row, {**row, "Head": "2"}])
+
+    assert [o.number for o in batch.orders] == [4]
+    assert batch.rejected == [RejectedRow(line=3, reason="pedido 4: número repetido en el lote")]
+
+
+def test_a_csv_saved_with_bom_is_read(tmp_path: Path) -> None:
+    csv_file = tmp_path / "pedidos.csv"
+    csv_file.write_text(
+        "Order number,Head,Body,Legs,Address\n1,1,2,3,Calle Ficticia 1\n", encoding="utf-8-sig"
+    )
+
+    batch = read_orders(csv_file)
+
+    assert [o.number for o in batch.orders] == [1]
+    assert batch.rejected == []
 
 
 def test_rejection_reasons_never_leak_row_values() -> None:
